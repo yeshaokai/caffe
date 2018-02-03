@@ -77,6 +77,10 @@ class ConvolutionLayer : public BaseConvolutionLayer<Dtype> {
       const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
   virtual inline bool reverse_dimensions() { return false; }
   virtual void compute_output_shape();
+  // add necessary variables for pruning convolutional layer
+
+  
+  
 };
 
 }  // namespace caffe

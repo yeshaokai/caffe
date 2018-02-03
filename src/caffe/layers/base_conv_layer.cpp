@@ -138,6 +138,16 @@ void BaseConvolutionLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
     weight_shape.push_back(kernel_shape_data[i]);
   }
   bias_term_ = this->layer_param_.convolution_param().bias_term();
+
+  pruning_coeff_ = this->layer_param_.pruning_param().coeff();
+  CHECK_GE(pruning_coeff_, 0);
+  CHECK_GT(1, pruning_coeff_);
+  pruned_ = (pruning_coeff_ == 0);
+  if (pruning_coeff_ > 0) {
+    masks_.resize(this->blobs_.size());
+  }
+  
+  
   vector<int> bias_shape(bias_term_, num_output_);
   if (this->blobs_.size() > 0) {
     CHECK_EQ(1 + bias_term_, this->blobs_.size())
@@ -167,6 +177,14 @@ void BaseConvolutionLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
     shared_ptr<Filler<Dtype> > weight_filler(GetFiller<Dtype>(
         this->layer_param_.convolution_param().weight_filler()));
     weight_filler->Fill(this->blobs_[0].get());
+
+    if (pruning_coeff_ != 0) {
+      // initialize a blob that has exact shape as filters.
+      masks_[0].reset(new Blob<Dtype>(weight_shape));
+      caffe_set<Dtype>(this->blobs_[0]->count(), (Dtype)1.,
+		       masks_[0]->mutable_cpu_data());
+    }
+    
     // If necessary, initialize and fill the biases.
     if (bias_term_) {
       this->blobs_[1].reset(new Blob<Dtype>(bias_shape));
@@ -174,11 +192,18 @@ void BaseConvolutionLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
           this->layer_param_.convolution_param().bias_filler()));
       bias_filler->Fill(this->blobs_[1].get());
     }
+    if (pruning_coeff_ != 0) {
+      masks_[1].reset(new Blob<Dtype>(bias_shape));
+      caffe_set<Dtype>(this->blobs_[1]->count(), (Dtype)1.,
+		       masks_[1]->mutable_cpu_data());
+    }
   }
   kernel_dim_ = this->blobs_[0]->count(1);
   weight_offset_ = conv_out_channels_ * kernel_dim_ / group_;
   // Propagate gradients to the parameters (as directed by backward pass).
   this->param_propagate_down_.resize(this->blobs_.size(), true);
+
+  
 }
 
 template <typename Dtype>

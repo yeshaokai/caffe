@@ -27,7 +27,7 @@ class BaseConvolutionLayer : public Layer<Dtype> {
   virtual inline int MinBottomBlobs() const { return 1; }
   virtual inline int MinTopBlobs() const { return 1; }
   virtual inline bool EqualNumBottomTopBlobs() const { return true; }
-
+  
  protected:
   // Helper functions that abstract away the column buffer and gemm arguments.
   // The last argument in forward_cpu_gemm is so that we can skip the im2col if
@@ -92,7 +92,11 @@ class BaseConvolutionLayer : public Layer<Dtype> {
   bool bias_term_;
   bool is_1x1_;
   bool force_nd_im2col_;
-
+  // add variables for pruning
+  bool pruned_;
+  vector<shared_ptr<Blob<Dtype> > > masks_;
+  Dtype pruning_coeff_;
+  
  private:
   // wrap im2col/col2im so we don't have to remember the (long) argument lists
   inline void conv_im2col_cpu(const Dtype* data, Dtype* col_buff) {

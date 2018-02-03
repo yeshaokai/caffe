@@ -10,6 +10,9 @@ void ConvolutionLayer<Dtype>::compute_output_shape() {
   const int* stride_data = this->stride_.cpu_data();
   const int* pad_data = this->pad_.cpu_data();
   const int* dilation_data = this->dilation_.cpu_data();
+
+
+  
   this->output_shape_.clear();
   for (int i = 0; i < this->num_spatial_axes_; ++i) {
     // i + 1 to skip channel axis
@@ -19,6 +22,9 @@ void ConvolutionLayer<Dtype>::compute_output_shape() {
         / stride_data[i] + 1;
     this->output_shape_.push_back(output_dim);
   }
+  
+  
+    
 }
 
 template <typename Dtype>
@@ -28,6 +34,19 @@ void ConvolutionLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
   for (int i = 0; i < bottom.size(); ++i) {
     const Dtype* bottom_data = bottom[i]->cpu_data();
     Dtype* top_data = top[i]->mutable_cpu_data();
+
+    if (!pruned_) {
+      caffe_cpu_prune(this->blobs_[0]->count(), pruning_coeff_,
+		      this->blobs_[0]->mutable_cpu_data(), masks_[0]->mutable_cpu_data());
+      if (bias_term_) {
+	caffe_cpu_prune(this->blobs_[1]->count(), pruning_coeff_,
+			this->blobs_[1]->mutable_cpu_data(), masks_[1]->mutable_cpu_data());
+      }
+      pruned_ = true;
+    }
+    
+
+    
     for (int n = 0; n < this->num_; ++n) {
       this->forward_cpu_gemm(bottom_data + n * this->bottom_dim_, weight,
           top_data + n * this->top_dim_);
@@ -36,7 +55,7 @@ void ConvolutionLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
         this->forward_cpu_bias(top_data + n * this->top_dim_, bias);
       }
     }
-  }
+  }  
 }
 
 template <typename Dtype>
@@ -68,6 +87,16 @@ void ConvolutionLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
               bottom_diff + n * this->bottom_dim_);
         }
       }
+    }        
+  }
+  if (pruning_coeff_ > 0) {
+    if (this->param_propagate_down_[0]) {
+      caffe_mul(this->blobs_[0]->count(), this->blobs_[0]->cpu_diff(),
+		masks_[0]->cpu_data(), this->blobs_[0]->mutable_cpu_diff());
+    }
+    if (bias_term_ && this->param_propagate_down_[1]) {
+      caffe_mul(this->blobs_[1]->count(), this->blobs_[1]->cpu_diff(),
+		masks_[1]->cpu_data(), this->blobs_[1]->mutable_cpu_diff());
     }
   }
 }
