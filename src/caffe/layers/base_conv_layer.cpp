@@ -1,3 +1,4 @@
+
 #include <algorithm>
 #include <vector>
 
@@ -139,13 +140,7 @@ void BaseConvolutionLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
   }
   bias_term_ = this->layer_param_.convolution_param().bias_term();
 
-  pruning_coeff_ = this->layer_param_.pruning_param().coeff();
-  CHECK_GE(pruning_coeff_, 0);
-  CHECK_GT(1, pruning_coeff_);
-  pruned_ = (pruning_coeff_ == 0);
-  if (pruning_coeff_ > 0) {
-    masks_.resize(this->blobs_.size());
-  }
+
   
   
   vector<int> bias_shape(bias_term_, num_output_);
@@ -171,6 +166,14 @@ void BaseConvolutionLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
     } else {
       this->blobs_.resize(1);
     }
+    pruning_coeff_ = this->layer_param_.pruning_param().coeff();
+    std::cout << "got coeff " << pruning_coeff_ <<std::endl;
+    CHECK_GE(pruning_coeff_, 0);
+    CHECK_GT(1, pruning_coeff_);
+    pruned_ = (pruning_coeff_ == 0);
+    if (pruning_coeff_ > 0) {
+      masks_.resize(this->blobs_.size());
+    }
     // Initialize and fill the weights:
     // output channels x input channels per-group x kernel height x kernel width
     this->blobs_[0].reset(new Blob<Dtype>(weight_shape));
@@ -180,7 +183,10 @@ void BaseConvolutionLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
 
     if (pruning_coeff_ != 0) {
       // initialize a blob that has exact shape as filters.
+      std::cout << "after first resetting " <<std::endl;
+      std::cout <<masks_.size()<<std::endl;
       masks_[0].reset(new Blob<Dtype>(weight_shape));
+
       caffe_set<Dtype>(this->blobs_[0]->count(), (Dtype)1.,
 		       masks_[0]->mutable_cpu_data());
     }
